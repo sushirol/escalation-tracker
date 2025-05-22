@@ -12,7 +12,7 @@ A minimal command-line tool to track support escalations using plain text files.
 
 ```bash
 # Start a new escalation
-esc start 1234 "Abcd Corp || Battery drain"
+esc new 1234 "Abcd Corp || Battery drain"
 
 # Update status
 esc update 1234 "Requested debug logs from support team"

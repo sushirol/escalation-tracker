@@ -21,6 +21,12 @@ esc update 1234 "Requested debug logs from support team"
 esc search Abcd
 esc search "Battery"
 
+# Show full escalation text
+esc show 1234
+
+# Add tags
+esc tag 1234 battery firmware
+
 # List all
 esc list
 ```

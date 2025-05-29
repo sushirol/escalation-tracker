@@ -14,9 +14,26 @@ def sanitize_filename(text):
     text = re.sub(r'[|/\\:*?"<>]', '', text)  # remove unsafe characters
     return "_".join(text.lower().split())
 
-def find_escalation_file(esc_id):
-    files = glob.glob(os.path.join(ESCALATION_DIR, f"{esc_id}_*.txt"))
-    return files[0] if files else None
+def find_escalation_file(esc_id_or_short):
+    files = sorted(glob.glob(os.path.join(ESCALATION_DIR, "*.txt")))
+    matches = []
+    for file in files:
+        with open(file) as f:
+            lines = f.readlines()
+            esc_id = next((l.split(': ')[1].strip() for l in lines if l.startswith("Escalation:")), "")
+            if esc_id == esc_id_or_short:
+                matches.append(file)
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        print("Multiple matches found. Please specify the full escalation ID.")
+        return None
+    # If not found by full ID, try short index
+    if esc_id_or_short.isdigit():
+        short_index = int(esc_id_or_short) - 1
+        if 0 <= short_index < len(files):
+            return files[short_index]
+    return None
 
 def start_escalation(esc_id, title):
     filename = f"{esc_id}_{sanitize_filename(title)}.txt"
@@ -39,16 +56,21 @@ def update_escalation(esc_id):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
     updated_lines = []
     inserted = False
+    line_number = 0
     with open(path, "r") as f:
         for line in f:
             updated_lines.append(line)
             if line.strip() == "Status Updates:" and not inserted:
-                updated_lines.append(f"[{timestamp}]\n")
+                updated_lines.append(f"[{timestamp}]\n\n")
                 inserted = True
+                line_number = len(updated_lines)  # line to place cursor after timestamp
     with open(path, "w") as f:
         f.writelines(updated_lines)
     editor = os.environ.get('EDITOR', 'vim')
-    subprocess.call([editor, path])
+    if 'vim' in editor:
+        subprocess.call([editor, f"+{line_number+1}", path])
+    else:
+        subprocess.call([editor, path])
 
 def search_escalations(term):
     matches = glob.glob(os.path.join(ESCALATION_DIR, "*.txt"))
@@ -65,17 +87,17 @@ def search_escalations(term):
                         print(f"  > {line.strip()}")
                 print()
 def list_escalations():
-    for file in sorted(glob.glob(os.path.join(ESCALATION_DIR, "*.txt"))):
+    for idx, file in enumerate(sorted(glob.glob(os.path.join(ESCALATION_DIR, "*.txt"))), 1):
         with open(file) as f:
             lines = f.readlines()
             esc_id = next((l.strip().split(': ')[1] for l in lines if l.startswith("Escalation:")), "")
             title = next((l.strip().split(': ')[1] for l in lines if l.startswith("Title:")), "")
-            print(f"{esc_id}: {title}")
+            print(f"{idx} {esc_id} {title}")
 
 def show_escalation(esc_id):
     path = find_escalation_file(esc_id)
     if not path:
-        print(f"Escalation {esc_id} not found.")
+        print(f"Escalation {esc_id} not found or ambiguous.")
         return
     with open(path) as f:
         print(f.read())
